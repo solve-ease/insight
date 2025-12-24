@@ -2,6 +2,7 @@ import streamlit as st
 from image_to_embedding import ImageEmbeddingProcessor
 from pathlib import Path
 from PIL import Image
+import os
 
 # Page configuration
 st.set_page_config(
@@ -23,8 +24,8 @@ st.markdown("Search for images using natural language descriptions")
 # Sidebar configuration
 st.sidebar.header("⚙️ Configuration")
 collection_name = st.sidebar.text_input("Collection Name", value="image_embeddings")
-qdrant_host = st.sidebar.text_input("Qdrant Host", value="localhost")
-qdrant_port = st.sidebar.number_input("Qdrant Port", value=6333, min_value=1, max_value=65535)
+qdrant_host = st.sidebar.text_input("Qdrant Host", value=os.environ.get("QDRANT_HOST", "localhost"))
+qdrant_port = st.sidebar.number_input("Qdrant Port", value=int(os.environ.get("QDRANT_PORT", "6333")), min_value=1, max_value=65535)
 num_results = st.sidebar.slider("Number of Results", min_value=1, max_value=200, value=10)
 
 # Search interface

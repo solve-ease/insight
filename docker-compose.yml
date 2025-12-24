@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+    networks:
+      - image-search-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: image-search-app
+    ports:
+      - "8501:8501"
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    volumes:
+      - ./images:/app/images:ro
+      - ./search_results:/app/search_results
+      - ./.venv:/app/.venv
+    networks:
+      - image-search-network
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  image-search-network:
+    driver: bridge
