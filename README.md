@@ -494,14 +494,6 @@ docker restart <qdrant-container-id>
 - **NumPy**: Numerical computing
 - **Pillow**: Image processing
 
-## License
-
-[Add your license here]
-
-## Contributing
-
-[Add contribution guidelines]
-
 ## Acknowledgments
 
 - OpenAI for the CLIP model
