@@ -4,7 +4,7 @@ from video_to_embedding import VideoEmbeddingProcessor
 from pathlib import Path
 from PIL import Image
 import os
-import torch
+import threading
 
 # Page configuration
 st.set_page_config(
@@ -13,20 +13,20 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize session state with SHARED model to save GPU memory
+# Initialize session state
 if 'image_processor' not in st.session_state:
-    with st.spinner("Loading CLIP model (shared for images & videos)..."):
-        # Load image processor first
+    with st.spinner("Loading CLIP model for images..."):
         st.session_state.image_processor = ImageEmbeddingProcessor()
-        
-        # Share the same model with video processor to save GPU memory
-        st.session_state.video_processor = VideoEmbeddingProcessor(shared_model=st.session_state.image_processor)
-    st.success("Model loaded successfully! (Shared between image & video search)")
+    st.success("Image model loaded successfully!")
+
+if 'video_processor' not in st.session_state:
+    with st.spinner("Loading CLIP model for videos..."):
+        st.session_state.video_processor = VideoEmbeddingProcessor()
+    st.success("Video model loaded successfully!")
 
 # Title and description
 st.title("🔍 Image & Video Search with CLIP")
 st.markdown("Search for images and videos using natural language descriptions")
-st.info("💡 Using shared CLIP model for both images and videos to optimize GPU memory")
 
 # Sidebar configuration
 st.sidebar.header("⚙️ Configuration")
@@ -49,6 +49,10 @@ image_collection_name = st.sidebar.text_input("Image Collection Name", value="im
 
 # Video collection settings
 video_collection_name = st.sidebar.text_input("Video Collection Name", value="video_embeddings", key="video_collection_name_input")
+
+# Indexing Section
+st.sidebar.markdown("---")
+st.sidebar.subheader("📁 Index Content")
 
 # Indexing Section
 st.sidebar.markdown("---")
@@ -112,7 +116,7 @@ col1, col2 = st.columns([3, 1])
 with col1:
     query_text = st.text_input(
         "Enter your search query:",
-        placeholder="e.g., aadhaar card, passport photo, person walking, sunset...",
+        placeholder="e.g., aadhaar card, passport photo, person smiling...",
         key="search_query"
     )
 
@@ -165,7 +169,7 @@ if search_button and query_text:
                 st.markdown("---")
                 
                 # Display results based on type
-                if search_mode == "Images" or (search_mode == "Both" and any(r['type'] == 'image' for r in all_results)):
+                if search_mode == "Images" or (search_mode == "Both" and image_results):
                     st.subheader("🖼️ Image Results")
                     
                     image_only = [r for r in all_results if r['type'] == 'image']
@@ -180,16 +184,17 @@ if search_button and query_text:
                                     result = image_only[idx]
                                     
                                     with col:
-                                        try:
-                                            image_path = Path(result['image_path'])
-                                            if image_path.exists():
-                                                img = Image.open(image_path)
-                                                st.image(img, use_container_width=True)
-                                                
-                                                st.markdown(f"**Rank:** {idx + 1}")
-                                                st.markdown(f"**Score:** {result['score']:.4f}")
-                                                st.markdown(f"**File:** `{result['filename']}`")
-                                                
+# Footer
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center; color: gray;'>
+    <small>Powered by OpenAI CLIP and Qdrant Vector Database<br>
+    Supporting both image and video search with semantic understanding</small>
+    </div>
+    """,
+    unsafe_allow_html=True
+)                                               
                                                 with st.expander("View full path"):
                                                     st.code(result['image_path'])
                                             else:
@@ -199,7 +204,7 @@ if search_button and query_text:
                                         
                                         st.markdown("---")
                 
-                if search_mode == "Videos" or (search_mode == "Both" and any(r['type'] == 'video' for r in all_results)):
+                if search_mode == "Videos" or (search_mode == "Both" and video_results):
                     st.subheader("🎬 Video Results")
                     
                     video_only = [r for r in all_results if r['type'] == 'video']
@@ -251,8 +256,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray;'>
-    <small>Powered by OpenAI CLIP and Qdrant Vector Database<br>
-    Supporting both image and video search with semantic understanding</small>
+    <small>Powered by OpenAI CLIP and Qdrant Vector Database</small>
     </div>
     """,
     unsafe_allow_html=True

@@ -10,4 +10,6 @@ wheels/
 .venv
 search_results
 images
+videos
 uv.lock
+qdrant_data

@@ -1,19 +1,22 @@
-# Photo Document Data Embeddings
+# Photo & Video Search with CLIP
 
-A powerful image search system using OpenAI's CLIP model and Qdrant vector database. Search through large image collections using natural language queries with semantic understanding.
+A powerful semantic search system using OpenAI's CLIP model and Qdrant vector database. Search through large collections of images and videos using natural language queries with semantic understanding.
 
 ## Features
 
 - 🔍 **Semantic Image Search**: Search images using natural language descriptions
+- 🎬 **Semantic Video Search**: Search videos with frame-level understanding and clustering
 - 🚀 **GPU Acceleration**: Optimized for CUDA-enabled GPUs with batch processing
 - 🎯 **High Accuracy**: Powered by OpenAI's CLIP ViT-Large-Patch14 model
 - 📊 **Vector Database**: Efficient similarity search with Qdrant
-- 🎨 **Interactive UI**: Beautiful Streamlit web interface
-- 📁 **Recursive Scanning**: Automatically processes all images in nested folders
-- ⚡ **Batch Processing**: Process thousands of images efficiently
+- 🎨 **Interactive UI**: Beautiful Streamlit web interface for both images and videos
+- 📁 **Recursive Scanning**: Automatically processes all content in nested folders
+- ⚡ **Batch Processing**: Process thousands of items efficiently
+- 🎞️ **Smart Frame Clustering**: Videos are sampled, clustered, and mean-pooled for optimal search
 
 ## Architecture
 
+### Image Search
 ```
 ┌─────────────────┐
 │  Image Folder   │
@@ -40,12 +43,56 @@ A powerful image search system using OpenAI's CLIP model and Qdrant vector datab
 └─────────────────┘
 ```
 
+### Video Search
+```
+┌─────────────────┐
+│  Video Folder   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Frame Sampling  │ ──► Extract frames @ configurable FPS
+│  (5-15 FPS)     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  CLIP Encoder   │ ──► Frame Embeddings (768D vectors)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ HDBSCAN Cluster │ ──► Group similar frames
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Mean Pooling   │ ──► One embedding per cluster
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Qdrant Vector DB│ ──► Store with metadata
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Text Query      │ ──► Search across video segments
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Cosine Search   │ ──► Top-K Video Segments
+└─────────────────┘
+```
+
 ## Prerequisites
 
 - Python 3.12
 - CUDA 12.1+ (for GPU support)
 - Docker (for Qdrant)
 - 4GB+ GPU memory recommended
+- OpenCV for video processing
 
 ## Installation
 
@@ -180,7 +227,9 @@ The script will:
 - Store vectors in Qdrant with metadata
 - Process in batches for efficiency
 
-**Supported formats**: `.jpg`, `.jpeg`, `.png`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.svg`, `.ico`
+**Supported image formats**: `.jpg`, `.jpeg`, `.png`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.svg`, `.ico`
+
+**Supported video formats**: `.mp4`, `.avi`, `.mov`, `.mkv`
 
 ### 2. Search via Web UI (Recommended)
 
@@ -199,6 +248,7 @@ Features:
 
 ### 3. Search via Command Line
 
+#### Search Images
 ```bash
 python3 search_images.py "aadhaar card"
 python3 search_images.py "passport photo"
@@ -206,6 +256,70 @@ python3 search_images.py "person smiling with glasses"
 ```
 
 Results are copied to `./search_results/` folder with ranking and scores.
+
+#### Search Videos
+```bash
+python3 search_videos.py "person walking"
+python3 search_videos.py "car driving on highway"
+python3 search_videos.py "people talking indoors"
+```
+
+Results show matching video segments with frame information.
+
+## Video Search Implementation
+
+### How It Works
+
+1. **Frame Sampling**: Videos are sampled at a configurable rate (5-15 FPS)
+   - Controlled by `VIDEO_SAMPLE_RATE` environment variable
+   - Extracts representative frames from the entire video
+
+2. **Embedding Generation**: Each frame is processed through CLIP
+   - Generates 768-dimensional embeddings
+   - Batch processing for efficiency
+
+3. **Clustering**: Similar frames are grouped using HDBSCAN
+   - Identifies semantic scenes/segments in the video
+   - Filters out noise and transitional frames
+   - Configurable cluster parameters
+
+4. **Mean Pooling**: Each cluster is represented by a single embedding
+   - Averages all frame embeddings in a cluster
+   - Normalized for cosine similarity search
+   - Preserves semantic information
+
+5. **Indexing**: Pooled embeddings stored in Qdrant with metadata
+   - Video path, cluster info, frame indices
+   - Enables precise segment retrieval
+
+### Video Search Configuration
+
+Environment variables for video processing:
+
+```bash
+# Frame sampling rate (frames per second)
+VIDEO_SAMPLE_RATE=10  # Default: 10 FPS
+
+# Clustering parameters
+MIN_CLUSTER_SIZE=5    # Minimum frames to form a cluster
+MIN_SAMPLES=3         # HDBSCAN min_samples parameter
+
+# Database settings
+VIDEO_COLLECTION_NAME=video_embeddings  # Qdrant collection name
+VECTOR_DIMENSIONS=768                   # CLIP embedding size
+```
+
+### Index Videos
+
+```bash
+# Set video folder path
+export VIDEO_FOLDER_PATH="./videos"
+
+# Run video indexing
+python3 video_to_embedding.py
+```
+
+Or use the Streamlit UI to index videos interactively.
 
 ## API Reference
 
@@ -244,6 +358,36 @@ processor = ImageEmbeddingProcessor(
 **`search_by_text(query_text, collection_name, qdrant_host, qdrant_port, limit)`**
 - Search for similar images using text query
 - Returns: List of results with scores and metadata
+
+### VideoEmbeddingProcessor
+
+Main class for video processing and search.
+
+#### Initialization
+```python
+processor = VideoEmbeddingProcessor(
+    model_name="openai/clip-vit-large-patch14"
+)
+```
+
+#### Methods
+
+**`process_videos_to_qdrant(folder_path, collection_name, qdrant_host, qdrant_port)`**
+- Index all videos in folder to Qdrant
+- Samples frames, generates embeddings, clusters, and stores
+- Automatic scene detection and segmentation
+
+**`search_videos_by_text(query_text, collection_name, qdrant_host, qdrant_port, limit)`**
+- Search for video segments using text query
+- Returns: List of matching segments with metadata
+  - Video path and name
+  - Cluster ID and frame indices
+  - Similarity score
+  - Frame count information
+
+**`get_collection_stats(collection_name, qdrant_host, qdrant_port)`**
+- Get statistics about indexed videos
+- Returns: Total embeddings, dimensions, distance metric
 
 ## Configuration
 
@@ -290,13 +434,24 @@ photo-doc-data-embeddings/
 ├── Dockerfile              # App container definition
 ├── docker-compose.yml      # Multi-container orchestration
 ├── .dockerignore          # Docker build exclusions
-├── image_to_embedding.py  # Core processing & indexing
-├── search_images.py       # CLI search tool
-├── app.py                 # Streamlit web interface
+├── image_to_embedding.py  # Image processing & indexing
+├── video_to_embedding.py  # Video processing & indexing
+├── search_images.py       # CLI image search tool
+├── search_videos.py       # CLI video search tool
+├── app.py                 # Streamlit web interface (images & videos)
 ├── pyproject.toml         # Dependencies
 ├── README.md              # Documentation
+├── video_embeddings/      # Video processing module
+│   ├── __init__.py       # Module exports
+│   ├── ingest.py         # Video frame sampling
+│   ├── embedding.py      # Frame embedding generation
+│   ├── cluster.py        # HDBSCAN clustering
+│   ├── mean_pool.py      # Cluster pooling
+│   ├── vector_db.py      # Qdrant operations
+│   └── orchestrator.py   # Video indexing pipeline
 ├── qdrant_data/           # Vector DB storage (Docker)
 ├── images/                # Your image folder (create this)
+├── videos/                # Your video folder (create this)
 ├── search_results/        # Search output folder
 └── .venv/                 # Virtual environment (local)
 ```
@@ -472,10 +627,9 @@ docker restart <qdrant-container-id>
 
 - Check collection name matches
 - Verify images were indexed successfully
-- Try broader search queries
-
 ## Example Queries
 
+### Image Search
 - `"indian aadhaar card"`
 - `"passport photograph with blue background"`
 - `"person wearing glasses"`
@@ -484,6 +638,15 @@ docker restart <qdrant-container-id>
 - `"landscape with mountains"`
 - `"indoor office setting"`
 
+### Video Search
+- `"person walking outdoors"`
+- `"car driving on highway"`
+- `"people talking in meeting"`
+- `"sunset over ocean"`
+- `"cooking in kitchen"`
+- `"children playing in park"`
+- `"city traffic at night"`
+
 ## Technology Stack
 
 - **CLIP**: OpenAI's vision-language model
@@ -491,6 +654,11 @@ docker restart <qdrant-container-id>
 - **Transformers**: Hugging Face model library
 - **Qdrant**: Vector similarity search engine
 - **Streamlit**: Web UI framework
+- **NumPy**: Numerical computing
+- **Pillow**: Image processing
+- **OpenCV**: Video processing
+- **HDBSCAN**: Density-based clustering
+- **scikit-learn**: Machine learning utilitiesork
 - **NumPy**: Numerical computing
 - **Pillow**: Image processing
 

@@ -17,8 +17,11 @@ ENV PATH="/root/.local/bin:$PATH"
 # Copy project files
 COPY pyproject.toml ./
 COPY image_to_embedding.py ./
+COPY video_to_embedding.py ./
 COPY search_images.py ./
+COPY search_videos.py ./
 COPY app.py ./
+COPY video_embeddings/ ./video_embeddings/
 COPY README.md ./
 
 # Install dependencies

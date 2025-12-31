@@ -29,8 +29,16 @@ services:
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      - VIDEO_SAMPLE_RATE=10
+      - VIDEO_BATCH_SIZE=4
+      - MIN_CLUSTER_SIZE=5
+      - MIN_SAMPLES=3
+      - VIDEO_COLLECTION_NAME=video_embeddings
+      - VECTOR_DIMENSIONS=768
+      - VIDEO_FOLDER_PATH=/app/videos
     volumes:
       - ./images:/app/images:ro
+      - ./videos:/app/videos:ro
       - ./search_results:/app/search_results
       - ./.venv:/app/.venv
     networks:
