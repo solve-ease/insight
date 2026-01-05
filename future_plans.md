@@ -1,0 +1,1 @@
+- maybe we can make this an entire desktop wide search application, when started it will scan all the images in the given scope or even the entire laptop, and then start indexing them one by one 

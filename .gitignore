@@ -13,3 +13,6 @@ images
 videos
 uv.lock
 qdrant_data
+
+!**/services/images
+!**/services/videos

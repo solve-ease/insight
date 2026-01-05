@@ -15,6 +15,7 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "scikit-learn>=1.8.0",
     "hdbscan>=0.8.41",
+    "fastapi[standard]>=0.128.0",
 ]
 
 [tool.uv.sources]
