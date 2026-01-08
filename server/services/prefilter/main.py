@@ -4,10 +4,10 @@ from pathlib import Path
 import os
 from PIL import Image
 import logging
-
+import asyncio
 logger = logging.getLogger(__name__)
 
-folder_path = os.getenv("FOLDER PATH", "/")
+folder_path = os.getenv("FOLDER PATH", "/home/rogue/Downloads")
 
 db = fileDB()
 
@@ -35,8 +35,10 @@ def get_files():
     return (image_files, validCnt, invalidCnt)
 
 
-async def prefilter():
+async def prefilter(rescan_start_time):
     logger.info("Running Prefilter")
+
+    await db.connect()
 
     image_files , validCnt, invalidCnt = get_files()
 
@@ -47,12 +49,12 @@ async def prefilter():
     # store the mtime and size of the files in a dictionary
     for idx , i in enumerate(image_files):
         stat = os.stat(i)
-        mtime = stat.st_mtime
+        mtime = int(stat.st_mtime)
         size = stat.st_size
 
-        file_list[idx] = (i,mtime , size)
+        file_list.append((i,mtime , size))
     
-    prefilter_res = await db.check_files(file_list)
+    prefilter_res = await db.check_files(file_list, rescan_start_time)
 
     logger.info(f"Prefilter Eliminated {len(image_files) - len(prefilter_res)}")
 
