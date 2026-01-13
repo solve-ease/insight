@@ -12,7 +12,7 @@ folder_path = os.getenv("FOLDER PATH", "/home/rogue/Downloads")
 db = fileDB()
 
 def get_files():
-    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif', '.webp', '.svg', '.ico'}
+    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif', '.webp', '.ico', ".mp4", ".avi", ".mov", ".mkv"}
     image_files = []
 
     validCnt = 0
@@ -23,10 +23,11 @@ def get_files():
         if file.is_file() and file.suffix.lower() in image_extensions:
             # Verify it's actually an image by trying to open it
             try:
-                with Image.open(file) as img:
-                    img.verify()
+                # with Image.open(file) as img:
+                #     img.verify()
                 validCnt += 1
                 image_files.append(str(file))
+
             except Exception:
                 # Skip files that can't be opened as images
                 logger.debug(f"Skipping invalid media file: {file.name}")

@@ -52,10 +52,27 @@ class fileDB():
                 await self.conn.fetch(f"UPDATE {self.FILE_DB_TABLE_NAME} SET rescan_time=$1 WHERE path=$2", datetime.now(timezone.utc), path)
         
         # removing the files which are no longer present in the file system from the file database and the vector database
-        points_delete = await self.conn.fetch(f"SELECT point_id FROM {self.FILE_DB_TABLE_NAME} WHERE rescan_time < $1", rescan_start_time)
+        points_delete_rows = await self.conn.fetch(f"SELECT point_id FROM {self.FILE_DB_TABLE_NAME} WHERE rescan_time < $1", rescan_start_time)
+
+        # Extract point IDs from database (they might be JSON arrays for videos)
+        import json
+        all_point_ids = []
+        for row in points_delete_rows:
+            point_id_data = row['point_id']
+            try:
+                # Try to parse as JSON array
+                point_ids = json.loads(point_id_data)
+                if isinstance(point_ids, list):
+                    all_point_ids.extend(point_ids)
+                else:
+                    all_point_ids.append(point_ids)
+            except (json.JSONDecodeError, TypeError):
+                # If not JSON, treat as single ID
+                all_point_ids.append(point_id_data)
 
         #implement in vector db service
-        delete_points(points_delete)
+        if all_point_ids:
+            delete_points(all_point_ids)
 
         await self.conn.fetch(f"DELETE FROM {self.FILE_DB_TABLE_NAME} WHERE rescan_time < $1",rescan_start_time)
         return out
@@ -84,13 +101,17 @@ class fileDB():
                 # edge case : there might be some possibility where the file is moved and changed together
                 
                 
-                point_id = vector_db_add(path) # a method to add a media file in the vector db
+                point_ids = vector_db_add(path) # a method to add a media file in the vector db
 
                 logger.info("new file detected")
-                if point_id is None:
+                if point_ids is None or point_ids == -1:
                     raise RuntimeError("Error while uploading media file in vector database")
 
-                await self.conn.fetch(f"INSERT INTO {self.FILE_DB_TABLE_NAME} (hash, point_id , mtime, size, rescan_time, path) VALUES ($1,$2,$3,$4,$5,$6)", str(hash), str(point_id), mtime, size, rescan_time, path)
+                # Convert list of point_ids to JSON string for storage
+                import json
+                point_ids_str = json.dumps(point_ids) if isinstance(point_ids, list) else str(point_ids)
+                
+                await self.conn.fetch(f"INSERT INTO {self.FILE_DB_TABLE_NAME} (hash, point_id , mtime, size, rescan_time, path) VALUES ($1,$2,$3,$4,$5,$6)", str(hash), point_ids_str, mtime, size, rescan_time, path)
             
             else:
                 #this means that the file is not new or changed and only the path has been changed.

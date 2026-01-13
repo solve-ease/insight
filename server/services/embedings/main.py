@@ -29,7 +29,7 @@ class EmbeddingProcessor:
         self.batch_size = batch_size
         self.video_sample_rate = video_sample_rate
     
-    def image_to_embedding(self, image_path: str) -> np.ndarray:
+    def image_to_embedding(self, image_path: str | Path) -> np.ndarray:
         """
         Convert an image to embedding using CLIP model.
         
@@ -40,7 +40,11 @@ class EmbeddingProcessor:
             numpy array: Image embedding vector
         """
         # Load and preprocess image
-        image = Image.open(image_path).convert('RGB')
+        if isinstance(image_path, Image.Image):
+            image = image_path.convert('RGB')
+        else:
+            image = Image.open(str(image_path)).convert('RGB')
+
         inputs = self.processor(images=image, return_tensors="pt")
         
         # Move inputs to GPU
@@ -55,10 +59,14 @@ class EmbeddingProcessor:
         return image_features.cpu().numpy()[0]
         
     
-    def video_to_embedding(self, video_path: str) -> list[np.ndarray]:
+    def video_to_embedding(self, video_path: str | Path) -> list[np.ndarray]:
 
         # sample the video
-        sampled_video = self.sample_video(Path(video_path))
+        if isinstance(video_path,str):
+            sampled_video = self.sample_video(Path(video_path))
+        
+        else:
+            sampled_video = self.sample_video(video_path)
 
         video_embedings = []
 
@@ -67,13 +75,13 @@ class EmbeddingProcessor:
                 self.image_to_embedding(i)
             )
         
-        cluster_labels = self.cluster_embeddings(embeddings=np.ndarray(video_embedings))
+        cluster_labels = self.cluster_embeddings(embeddings=np.array(video_embedings))
 
         clusters: dict[int , list] = {}
         labels = []
 
-        for i in cluster_labels:
-            label = int(cluster_labels[i])
+        for idx,label in enumerate(cluster_labels):
+            label = int(label)
 
             if label not in labels:
                 labels.append(label)
@@ -81,7 +89,7 @@ class EmbeddingProcessor:
             if label not in clusters:
                 clusters[label] = []
             
-            clusters[label].append(video_embedings[i])
+            clusters[label].append(video_embedings[idx])
         
         # now we have clustered emebdings in this dict with a labels list with all the labels in it
 
@@ -92,7 +100,9 @@ class EmbeddingProcessor:
                 final_embeddings.extend(clusters[i])
             
             else:
-                mean_embedding = np.mean(clusters[i])
+                # Stack embeddings and compute mean along axis 0
+                cluster_array = np.array(clusters[i])
+                mean_embedding = np.mean(cluster_array, axis=0)
                 normalized_mean_embedding = mean_embedding / np.linalg.norm(mean_embedding)
 
                 final_embeddings.append(normalized_mean_embedding)
@@ -100,7 +110,7 @@ class EmbeddingProcessor:
         return final_embeddings
 
         
-    def cluster_embeddings(self, embeddings: np.ndarray) -> np.ndarray:
+    def cluster_embeddings(self, embeddings) -> np.ndarray:
         """
         Cluster video frame embeddings using HDBSCAN.
         
