@@ -1,10 +1,9 @@
 import asyncpg
 import logging
 import os
-import asyncio
-from decimal import Decimal
 from datetime import datetime, timezone
 from server.services.vectorDB.main import delete_points, vector_db_add
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,6 @@ class fileDB():
         points_delete_rows = await self.conn.fetch(f"SELECT point_id FROM {self.FILE_DB_TABLE_NAME} WHERE rescan_time < $1", rescan_start_time)
 
         # Extract point IDs from database (they might be JSON arrays for videos)
-        import json
         all_point_ids = []
         for row in points_delete_rows:
             point_id_data = row['point_id']

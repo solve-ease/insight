@@ -6,6 +6,7 @@ from qdrant_client.models import Distance, VectorParams, PointStruct, PointIdsLi
 from server.services.embedings.main import EmbeddingProcessor
 from pathlib import Path
 import traceback
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,22 @@ class vectorDB():
                 )
             )
         
+        self.limit = int(os.getenv("VECTOR_DB_SEARCH_LIMIT", 10))
+
+    def query_points(self, text_embedding:np.ndarray):
+        search_results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=text_embedding.tolist(),
+            limit=self.limit
+        ).points
+
+        files = set()
+
+        for result in search_results:
+            files.add(result.payload["path"])
+
+        return list(files)    
+    
     def add_point(self, embedding: list, path=""):
         try:
             logger.info(f"Adding {len(embedding)} points for path: {path}")

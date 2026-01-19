@@ -193,4 +193,27 @@ class EmbeddingProcessor:
         
         except Exception as e:
             logger.error(f"Error sampling video {path_str}: {e}")
-            return []    
+            return []   
+
+    def text_to_embedding(self, text: str) -> np.ndarray:
+        """
+        Convert text to embedding using CLIP model.
+        
+        Args:
+            text: Text string to embed
+        
+        Returns:
+            numpy array: Text embedding vector
+        """
+        
+        # Tokenize text
+        inputs = self.processor(text=[text], return_tensors="pt", padding=True)
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        
+        # Generate embedding
+        with torch.no_grad():
+            text_features = self.model.get_text_features(**inputs)
+            # Normalize the embedding
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        
+        return text_features.cpu().numpy()[0] 
