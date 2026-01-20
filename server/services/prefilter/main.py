@@ -59,4 +59,4 @@ async def prefilter(rescan_start_time):
 
     logger.info(f"Prefilter Eliminated {len(image_files) - len(prefilter_res)}")
 
-    return prefilter_res
+    return prefilter_res, image_files

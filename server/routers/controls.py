@@ -24,7 +24,7 @@ async def rescan_endpoint():
     try:
         await fileDatabase.connect()
         rescan_start_time = datetime.now(timezone.utc)
-        prefilter_res = await prefilter(rescan_start_time)
+        prefilter_res, files = await prefilter(rescan_start_time)
         hash = list()
 
         # logger.info(f"prefilter result: {prefilter_res}")
@@ -35,7 +35,7 @@ async def rescan_endpoint():
         
         files_changed = await fileDatabase.check_file_hash(hash)
 
-        return {"status": "rescan completed", "files":f"{files_changed}"}
+        return {"status": "rescan completed", "files":f"{files}"}
     
     except Exception as e:
         logger.error(f"Error occured in  /controls/rescan: {e}")
